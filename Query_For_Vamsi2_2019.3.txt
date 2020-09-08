@@ -1,0 +1,355 @@
+	--Query to get all attributes
+
+	DECLARE @LiveServiceLines AS TABLE ([GUID] UNIQUEIDENTIFIER, [Name] NVARCHAR(256))
+	DECLARE @ServiceMatrixItems AS TABLE(ServiceName NVARCHAR(256), ServiceLineName NVARCHAR(256), SupplierCompanyName NVARCHAR(256),  
+		CompanyName NVARCHAR(256), ContractName NVARCHAR(256), LiveProcessVersionInstanceGUID UNIQUEIDENTIFIER, [ProcessType] INT, ProcessInstanceName NVARCHAR(256), CaseAttributeGUID UNIQUEIDENTIFIER) 
+  
+	INSERT INTO @LiveServiceLines
+    SELECT [ServiceTemplates].[GUID],  
+           [ServiceTemplateName].[Name]  
+      FROM [tblServiceTemplates] AS [ServiceTemplates] WITH(READUNCOMMITTED)  
+           INNER JOIN [tblServiceVersionTemplates] AS [ServiceVersionTemplates] WITH(READUNCOMMITTED) ON [ServiceVersionTemplates].[ServiceTemplateGUID] = [ServiceTemplates].[GUID]  
+		   LEFT OUTER JOIN [tblLocalisations] AS [ServiceTemplateName] WITH(READUNCOMMITTED) ON [ServiceTemplateName].[GUID] = [ServiceTemplates].[GUID]  
+     WHERE [ServiceVersionTemplates].[VersionState] = 8  
+    ORDER BY [ServiceTemplateName].[Name]  
+  
+  
+    INSERT INTO @ServiceMatrixItems
+    SELECT NULL AS [ServiceName],  
+           --NULL AS [ServiceLineGUID],  
+		   NULL AS [ServiceLineName],  
+           --NULL AS [SupplierCompanyGUID],  
+           NULL AS [SupplierCompanyName],  
+           --[tblCompanies].[GUID] AS [CompanyGUID],  
+           [tblCompanies].[Name] AS [CompanyName],  
+           --NULL AS [ContractGUID],  
+           NULL AS [ContractName],  
+           --NULL AS [ContractVersionGUID],  
+           --NULL AS [ServiceGUID],  
+           NULL AS [LiveProcessVersionInstanceGUID],  
+           --NULL AS [DraftProcessVersionInstanceGUID],  
+           --NULL AS [DraftCaseAttributeLastUpdatedTime],  
+           --NULL AS [ProcessInstanceGUID],  
+           --NULL AS [MasterProcessInstanceGUID],  
+           --NULL AS [ProcessTemplateGUID],  
+           NULL AS [ProcessType],  
+           --NULL AS [ProcessSubType],  
+           NULL AS [ProcessInstanceName],
+           --NULL AS [ShowOnContactsPage],  
+           --0 AS [DraftVersions],  
+           --0 AS [TestingVersions],  
+           --0 AS [LiveVersions],  
+           --0 AS [RetiringVersions]  
+		   NULL
+      FROM [tblCompanies] WITH(READUNCOMMITTED)  
+     WHERE ([tblCompanies].[CompanyType]&1) = 1  
+           AND [tblCompanies].[Retired] = 0  
+           AND NOT EXISTS (  
+                           SELECT 1  
+                             FROM [tblContracts] WITH(READUNCOMMITTED)  
+                                  INNER JOIN [tblContractVersions] WITH(READUNCOMMITTED) ON [tblContracts].[GUID] = [tblContractVersions].[GUID]  
+                            WHERE [tblContracts].[Customer_ObjectGUID] = [tblCompanies].[GUID]  
+                                  AND [tblContractVersions].[VersionState] = 8  
+                                  AND [tblContracts].[CaseFlowMasters] = 0  
+                          )  
+    UNION  
+    SELECT NULL AS [ServiceName],  
+           --NULL AS [ServiceLineGUID],  
+		   NULL AS [ServiceLineName],  
+           --[Supplier_tblCompanies].[GUID] AS [SupplierCompanyGUID],  
+           [Supplier_tblCompanies].[Name] AS [SupplierCompanyName],  
+           --[tblCompanies].[GUID] AS [CompanyGUID],  
+           [tblCompanies].[Name] AS [CompanyName],  
+           --[tblContracts].[GUID] AS [ContractGUID],  
+           [tblContractName].[Name] AS [ContractName],  
+           --[tblContractVersions].[VersionGUID] AS [ContractVersionGUID],  
+           --NULL AS [ServiceGUID],  
+           NULL AS [LiveProcessVersionInstanceGUID],  
+           --NULL AS [DraftProcessVersionInstanceGUID],  
+           --NULL AS [DraftCaseAttributeLastUpdatedTime],  
+           --NULL AS [ProcessInstanceGUID],  
+           --NULL AS [MasterProcessInstanceGUID],  
+           --NULL AS [ProcessTemplateGUID],  
+           NULL AS [ProcessType],  
+           --NULL AS [ProcessSubType],  
+           NULL AS [ProcessInstanceName],  
+           --NULL AS [ShowOnContactsPage],  
+           --0 AS [DraftVersions],  
+           --0 AS [TestingVersions],  
+           --0 AS [LiveVersions],  
+           --0 AS [RetiringVersions]  
+		   NULL
+      FROM [tblCompanies] WITH(READUNCOMMITTED)  
+           INNER JOIN [tblContracts] WITH(READUNCOMMITTED) ON [tblCompanies].[GUID] = [tblContracts].[Customer_ObjectGUID]  
+           INNER JOIN [tblContractVersions] WITH(READUNCOMMITTED) ON [tblContracts].[GUID] = [tblContractVersions].[GUID]  
+           INNER JOIN [tblCompanies] AS [Supplier_tblCompanies] WITH(READUNCOMMITTED) ON [tblContracts].[Supplier_ObjectGUID] = [Supplier_tblCompanies].[GUID]  
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblContractName] WITH(READUNCOMMITTED) ON [tblContractName].[GUID] = [tblContracts].[GUID]  
+     WHERE [tblCompanies].[Retired] = 0  
+           AND [tblContractVersions].[VersionState] = 8  
+           AND [tblContracts].[CaseFlowMasters] = 0  
+           AND NOT EXISTS (  
+                           SELECT 1  
+                             FROM [tblServiceInstances] WITH(READUNCOMMITTED)  
+                                  INNER JOIN [tblServiceVersionInstances] WITH(READUNCOMMITTED) ON [tblServiceInstances].[GUID] = [tblServiceVersionInstances].[GUID]  
+                            WHERE [tblServiceInstances].[ContractGUID] = [tblContracts].[GUID]  
+                                  AND [tblServiceInstances].[ServiceTemplateGUID] IN (SELECT GUID FROM @LiveServiceLines) 
+                                  AND [tblServiceVersionInstances].[VersionState] = 8  
+                          )  
+    UNION  
+    SELECT [tblServiceInstanceName].[Name] AS [ServiceName],  
+           --[ServiceTemplateGUID] AS [ServiceLineGUID],  
+		   [tblServiceTemplateName].[Name] AS [ServiceLineName],  
+           --[Supplier_tblCompanies].[GUID] AS [SupplierCompanyGUID],  
+           [Supplier_tblCompanies].[Name] AS [SupplierCompanyName],  
+           --[tblCompanies].[GUID] AS [CompanyGUID],  
+           [tblCompanies].[Name] AS [CompanyName],  
+           --[tblContracts].[GUID] AS [ContractGUID],  
+           [tblContractName].[Name] AS [ContractName],  
+           --[tblContractVersions].[VersionGUID] AS [ContractVersionGUID],  
+           --[tblServiceInstances].[GUID] AS [ServiceGUID],  
+           NULL AS [LiveProcessVersionInstanceGUID],  
+           --NULL AS [DraftProcessVersionInstanceGUID],  
+           --NULL AS [DraftCaseAttributeLastUpdatedTime],  
+           --NULL AS [ProcessInstanceGUID],  
+           --NULL AS [MasterProcessInstanceGUID],  
+           --NULL AS [ProcessTemplateGUID],  
+           NULL AS [ProcessType],  
+           --NULL AS [ProcessSubType],  
+           NULL AS [ProcessInstanceName],
+           --NULL AS [ShowOnContactsPage],  
+           --0 AS [DraftVersions],  
+           --0 AS [TestingVersions],  
+           --0 AS [LiveVersions],  
+           --0 AS [RetiringVersions]  
+		   NULL
+      FROM [tblCompanies] WITH(READUNCOMMITTED)  
+           INNER JOIN [tblContracts] WITH(READUNCOMMITTED) ON [tblCompanies].[GUID] = [tblContracts].[Customer_ObjectGUID]  
+           INNER JOIN [tblContractVersions] WITH(READUNCOMMITTED) ON [tblContracts].[GUID] = [tblContractVersions].[GUID]  
+           INNER JOIN [tblCompanies] AS [Supplier_tblCompanies] WITH(READUNCOMMITTED) ON [tblContracts].[Supplier_ObjectGUID] = [Supplier_tblCompanies].[GUID]  
+           INNER JOIN [tblServiceInstances] WITH(READUNCOMMITTED) ON [tblContracts].[GUID] = [tblServiceInstances].[ContractGUID]  
+		   INNER JOIN [tblServiceTemplates] WITH(READUNCOMMITTED) ON [tblServiceTemplates].[GUID] = [tblServiceInstances].ServiceTemplateGUID 
+           INNER JOIN [tblServiceVersionInstances] WITH(READUNCOMMITTED) ON [tblServiceInstances].[GUID] = [tblServiceVersionInstances].[GUID]  
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblServiceInstanceName] WITH(READUNCOMMITTED) ON [tblServiceInstanceName].[GUID] = [tblServiceInstances].[GUID] 
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblServiceTemplateName] WITH(READUNCOMMITTED) ON [tblServiceTemplateName].[GUID] = [tblServiceTemplates].[GUID] 
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblContractName] WITH(READUNCOMMITTED) ON [tblContractName].[GUID] = [tblContracts].[GUID]  
+     WHERE [tblCompanies].[Retired] = 0  
+           AND [tblContractVersions].[VersionState] = 8  
+           AND [tblContracts].[CaseFlowMasters] = 0  
+           AND [tblServiceVersionInstances].[VersionState] = 8  
+           AND [tblServiceInstances].[ServiceTemplateGUID]  IN (SELECT GUID FROM @LiveServiceLines) 
+           AND NOT EXISTS (  
+                           SELECT 1  
+                             FROM [tblProcessInstances] WITH(READUNCOMMITTED)  
+                                  INNER JOIN [tblProcessVersionInstances] WITH(READUNCOMMITTED) ON [tblProcessInstances].[GUID] = [tblProcessVersionInstances].[GUID]  
+                            WHERE [tblProcessInstances].[ServiceInstanceGUID] = [tblServiceInstances].[GUID]  
+                                  AND [tblProcessVersionInstances].[ProcessType] IN (1, 2)  
+                          )  
+    UNION  
+    SELECT [tblServiceInstanceName].[Name] AS [ServiceName],  
+           --[ServiceTemplateGUID] AS [ServiceLineGUID],  
+		   [tblServiceTemplateName].[Name] AS [ServiceLineName],  
+           --[Supplier_tblCompanies].[GUID] AS [SupplierCompanyGUID],  
+           [Supplier_tblCompanies].[Name] AS [SupplierCompanyName],  
+           --[tblCompanies].[GUID] AS [CompanyGUID],  
+           [tblCompanies].[Name] AS [CompanyName],  
+           --[tblContracts].[GUID] AS [ContractGUID],    
+           [tblContractName].[Name] AS [ContractName],  
+           --[tblContractVersions].[VersionGUID] AS [ContractVersionGUID],  
+           --[tblServiceInstances].[GUID] AS [ServiceGUID],  
+           [Live_tblProcessVersionInstances].[VersionGUID] AS [LiveProcessVersionInstanceGUID],  
+           --[Draft_tblProcessVersionInstances].[VersionGUID] AS [DraftProcessVersionInstanceGUID],  
+           --[Draft_tblProcessVersionInstances].[UpdatedTime] AS [DraftCaseAttributeLastUpdatedTime],  
+           --[tblProcessInstances].[GUID] AS [ProcessInstanceGUID],  
+           --[tblProcessInstances].[Master_ProcessInstanceGUID] AS [MasterProcessInstanceGUID],  
+           --[tblProcessInstances].[ProcessTemplateGUID] AS [ProcessTemplateGUID],  
+           [Any_tblProcessVersionInstances].[ProcessType] AS [ProcessType],  
+           --[Any_tblProcessVersionInstances].[ProcessSubType] AS [ProcessSubType],  
+           [tblProcessInstanceName].[Name] AS [ProcessInstanceName],
+           --[tblProcessInstances].[ShowOnContactsPage] AS [ShowOnContactsPage],  
+           --[tblProcessInstances].[DraftVersions] AS [DraftVersions],  
+           --[tblProcessInstances].[TestingVersions] AS [TestingVersions],  
+           --[tblProcessInstances].[LiveVersions] AS [LiveVersions],  
+           --[tblProcessInstances].[RetiringVersions] AS [RetiringVersions]  
+		   NULL
+      FROM [tblCompanies] WITH(READUNCOMMITTED)  
+           INNER JOIN [tblContracts] WITH(READUNCOMMITTED) ON [tblCompanies].[GUID] = [tblContracts].[Customer_ObjectGUID]  
+           INNER JOIN [tblContractVersions] WITH(READUNCOMMITTED) ON [tblContracts].[GUID] = [tblContractVersions].[GUID]  
+           INNER JOIN [tblCompanies] AS [Supplier_tblCompanies] WITH(READUNCOMMITTED) ON [tblContracts].[Supplier_ObjectGUID] = [Supplier_tblCompanies].[GUID]  
+           INNER JOIN [tblServiceInstances] WITH(READUNCOMMITTED) ON [tblContracts].[GUID] = [tblServiceInstances].[ContractGUID]  
+		   INNER JOIN [tblServiceTemplates] WITH(READUNCOMMITTED) ON [tblServiceTemplates].[GUID] = [tblServiceInstances].ServiceTemplateGUID 
+           INNER JOIN [tblServiceVersionInstances] WITH(READUNCOMMITTED) ON [tblServiceInstances].[GUID] = [tblServiceVersionInstances].[GUID]  
+           INNER JOIN [tblProcessInstances] WITH(READUNCOMMITTED) ON [tblServiceInstances].[GUID] = [tblProcessInstances].[ServiceInstanceGUID]  
+           LEFT OUTER JOIN [tblProcessVersionInstances] AS [Live_tblProcessVersionInstances] WITH(READUNCOMMITTED) ON [tblProcessInstances].[GUID] = [Live_tblProcessVersionInstances].[GUID]  
+                                                                                                                      AND [Live_tblProcessVersionInstances].[VersionState] = 8              
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblServiceInstanceName] WITH(READUNCOMMITTED) ON [tblServiceInstanceName].[GUID] = [tblServiceInstances].[GUID] 
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblServiceTemplateName] WITH(READUNCOMMITTED) ON [tblServiceTemplateName].[GUID] = [tblServiceTemplates].[GUID] 
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblContractName] WITH(READUNCOMMITTED) ON [tblContractName].[GUID] = [tblContracts].[GUID]  
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblProcessInstanceName] WITH(READUNCOMMITTED) ON [tblProcessInstanceName].[GUID] = [tblProcessInstances].[GUID]  
+		   OUTER APPLY (  
+                        SELECT TOP (1) [tblProcessVersionInstances].[VersionGUID],  
+                                       [tblCaseAttributes].[UpdatedTime]  
+                          FROM [tblProcessVersionInstances] WITH(READUNCOMMITTED)  
+                               LEFT OUTER JOIN [tblCaseAttributes] WITH(READUNCOMMITTED) ON [tblProcessVersionInstances].[VersionGUID] = [tblCaseAttributes].[ProcessVersionInstanceGUID]  
+                         WHERE [tblProcessVersionInstances].[GUID] = [tblProcessInstances].[GUID]  
+                               AND [tblProcessVersionInstances].[VersionState] IN (1, 2)  
+                        ORDER BY [tblProcessVersionInstances].[Version] DESC  
+                       ) AS [Draft_tblProcessVersionInstances]  
+           CROSS APPLY (  
+                        SELECT TOP (1) [tblProcessVersionInstances].[ProcessType],  
+                                       [tblProcessVersionInstances].[ProcessSubType]  
+                          FROM [tblProcessVersionInstances] WITH(READUNCOMMITTED)  
+                         WHERE [tblProcessVersionInstances].[GUID] = [tblProcessInstances].[GUID]  
+                               AND [tblProcessVersionInstances].[ProcessType] IN (1, 2)  
+                        ORDER BY [tblProcessVersionInstances].[Version] DESC  
+                       ) AS [Any_tblProcessVersionInstances]  
+     WHERE [tblCompanies].[Retired] = 0  
+           AND [tblContractVersions].[VersionState] = 8  
+           AND [tblServiceVersionInstances].[VersionState] = 8  
+           AND [tblServiceInstances].[ServiceTemplateGUID] IN (SELECT GUID FROM @LiveServiceLines) 
+    ORDER BY [CompanyName],  
+             [ContractName],  
+             [ServiceName],  
+             [ProcessInstanceName]  
+
+
+	UPDATE serviceMatrixItems
+	SET serviceMatrixItems.CaseAttributeGUID = CaseAttributes.[GUID]
+	FROM @ServiceMatrixItems serviceMatrixItems 
+	INNER JOIN tblCaseAttributes CaseAttributes 
+	ON serviceMatrixItems.LiveProcessVersionInstanceGUID = CaseAttributes.ProcessVersionInstanceGUID
+	
+	DECLARE @TempActionAttributes AS TABLE(ServiceLineName NVARCHAR(256), ServiceName NVARCHAR(256), SupplierCompanyName NVARCHAR(256),  
+		CompanyName NVARCHAR(256), ContractName NVARCHAR(256), ProcessInstanceName NVARCHAR(256), ActionName NVARCHAR(256), [StepNumber] INT, [Order] INT, [AllocationAttributeName] NVARCHAR(512),
+		[DueDateAttributeName] NVARCHAR(512), [ActionGeneralAttributeName] NVARCHAR(512), [PeerReviewActionName] NVARCHAR(256), [EmailCC] NVARCHAR(256), [EmailBCC] NVARCHAR(256), 
+		[MainCardName] NVARCHAR(256), [SideCardName] NVARCHAR(256), [OptionalEmailTo] NVARCHAR(MAX), [OptionalEmailCC] NVARCHAR(MAX), [OptionalEmailBCC] NVARCHAR(MAX))
+    DECLARE @caseProcessSubType INT = 0  
+  
+    SELECT @caseProcessSubType = [MasterProcessVersionInstance].[ProcessSubType]  
+      FROM [tblCaseAttributes] AS [CaseAttribute] WITH(READUNCOMMITTED)  
+           INNER JOIN [tblProcessVersionInstances] WITH(READUNCOMMITTED) ON [tblProcessVersionInstances].[VersionGUID] = [CaseAttribute].[ProcessVersionInstanceGUID]  
+           LEFT JOIN [tblProcessVersionInstances] AS [MasterProcessVersionInstance] WITH(READUNCOMMITTED) ON [MasterProcessVersionInstance].[VersionGUID] = [tblProcessVersionInstances].[Master_ProcessVersionInstanceGUID]  
+  
+	INSERT INTO @TempActionAttributes  
+    SELECT 
+			CaseAttributes.ServiceLineName, 
+			CaseAttributes.ServiceName, 
+			CaseAttributes.SupplierCompanyName,  
+			CaseAttributes.CompanyName, 
+			CaseAttributes.ContractName, 
+			CaseAttributes.ProcessInstanceName, 
+		   [tblProcessInstanceName].[Name] AS [ActionName],  
+		   --[ActionAttribute].[GUID],  
+           --[ActionAttribute].[PeerReview_AllocationAttributeGUID],  
+           --[ActionAttribute].[CaseAttributeGUID],  
+           --[ActionAttribute].[ProcessVersionInstanceGUID],  
+           [ActionAttribute].[StepNumber],  
+           [ActionAttribute].[Order],  
+           --[ActionAttribute].[AutoCreate],  
+           --[ActionAttribute].[Previous_ActionAttributeGUID],  
+           --[ActionAttribute].[AllowManualCreation],  
+           --[ActionAttribute].[RemindBeforeDueDate],  
+           --[ActionAttribute].[RemindAfterDueDate],  
+           --[ActionAttribute].[DaysBeforeDueDateToStart],  
+           --[ActionAttribute].[EmailTo],  
+           --[ActionAttribute].[EmailSubject],  
+           --[ActionAttribute].[ActionGeneralAttributeGUID],  
+           --@caseProcessSubType AS [CaseProcessSubType],  
+           --[ActionAttribute].[DueDateAttributeGUID],  
+           --[ActionAttribute].[AllocationAttributeGUID],  
+           --[ActionAttribute].[CustomAttributes_EntityGUID],  
+           --[ActionAttribute].[HasChecklist],  
+           --[ActionAttribute].[IsValid],  
+           --[MasterProcessVersionInstance].[ProcessType],  
+           --[MasterProcessVersionInstance].[ProcessSubType],  
+           --[ActionAttribute].[UpdatedTime],  
+           --[ActionAttribute].[ResponseEmailFrom],  
+           --ISNULL([ActionAttribute].[Previous_ActionAttributeGUID], '00000000-0000-0000-0000-000000000000') AS [PreviousActionAttributeGUID],  
+           ISNULL([tblAllocationAttributes].[AttributeName], '') AS [AllocationAttributeName],  
+           ISNULL([tblDueDateAttributes].[AttributeName], '') AS [DueDateAttributeName],  
+           ISNULL([tblActionGeneralAttributes].[AttributeName], '') AS [ActionGeneralAttributeName],  
+           --[tblProcessInstances].[ProcessTemplateGUID],  
+           --[tblProcessInstances].[Master_ProcessInstanceGUID] AS [MasterProcessInstanceGUID],  
+           --ISNULL([tblAllocationAttributes].[QueueAllocationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [QueueAllocationMethod],            
+           --ISNULL([tblAllocationAttributes].[QueueAllocationParameter], '') AS [QueueAllocationParameter],  
+           --ISNULL([tblAllocationAttributes].[PrimaryAllocationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [PrimaryAllocationMethod],  
+           --ISNULL([tblAllocationAttributes].[PrimaryPositionTemplate], '') AS [PrimaryPositionTemplate],  
+           --ISNULL([tblAllocationAttributes].[SecondaryAllocationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [SecondaryAllocationMethod],  
+           --ISNULL([tblAllocationAttributes].[SecondaryPositionTemplate], '') AS [SecondaryPositionTemplate],  
+           --ISNULL([tblAllocationAttributes].[CCEmailsToAllPrimaryPosition], 0) AS [CCEmailsToAllPrimaryPosition],  
+           --ISNULL([tblAllocationAttributes].[CCEmailsToSecondaryPosition], 0) AS [CCEmailsToSecondaryPosition],  
+           --ISNULL([tblAllocationAttributes].[InformViaEmail], 0) AS [InformViaEmail],  
+           --ISNULL([tblAllocationAttributes].[SendReminders], 0) AS [SendReminders],  
+           --ISNULL([tblDueDateAttributes].[DueDateCalculationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [DueDateCalculationMethod],  
+           --ISNULL([tblDueDateAttributes].[DueDateCalculationParameter], '') AS [DueDateCalculationParameter],  
+           --ISNULL([tblDueDateAttributes].[DueDateCalendar], '00000000-0000-0000-0000-000000000000') AS [DueDateCalendar],  
+           --ISNULL([tblDueDateAttributes].[NextWorkingMoment], 0) AS [NextWorkingMoment],  
+           --ISNULL([tblDueDateAttributes].[TargetDurationUnits], 0) AS [TargetDurationUnits],  
+           --ISNULL([tblDueDateAttributes].[TargetDuration], 0) AS [TargetDuration],  
+           --ISNULL([tblDueDateAttributes].[AddWaitTimetoDueDate], 0) AS [AddWaitTimetoDueDate],  
+           --ISNULL([tblDueDateAttributes].[AllowOverrideDueDate], 0) AS [AllowOverrideDueDate],  
+           --ISNULL([tblActionGeneralAttributes].[Instruction], '') AS [Instruction],  
+           --ISNULL([tblActionGeneralAttributes].[HideCaseLink], 0) AS [HideCaseLink],  
+           --ISNULL([tblActionGeneralAttributes].[SOPURL], '') AS [SOPURL],  
+           --ISNULL([tblActionGeneralAttributes].[AutoCompleteOnTimeOut], 0) AS [AutoCompleteOnTimeOut],  
+           --ISNULL([tblActionGeneralAttributes].[PauseCaseIfPaused], 0) AS [PauseCaseIfPaused],  
+           --ISNULL([tblActionGeneralAttributes].[IsValid], 0) AS [IsActionGeneralValid],  
+           --ISNULL([tblAllocationAttributes].[IsValid], 0) AS [IsAllocationValid],  
+           --ISNULL([tblDueDateAttributes].[IsValid], 0) AS [IsDueDateValid],  
+           --ISNULL([PeerReviewAllocationAttribute].[AttributeName], '') AS [PeerReviewAllocationAttributeName],  
+           --ISNULL([PeerReviewAllocationAttribute].[QueueAllocationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [PeerReviewQueueAllocationMethod],  
+           [tblProcessInstanceName].[Name] AS [PeerReviewActionName],  
+           --ISNULL([PeerReviewAllocationAttribute].[QueueAllocationParameter], '') AS [PeerReviewQueueAllocationParameter],  
+           --ISNULL([PeerReviewAllocationAttribute].[PrimaryAllocationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [PeerReviewPrimaryAllocationMethod],  
+           --ISNULL([PeerReviewAllocationAttribute].[PrimaryPositionTemplate], '') AS [PeerReviewPrimaryPositionTemplate],  
+           --ISNULL([PeerReviewAllocationAttribute].[SecondaryAllocationMethod_ProcessInstanceGUID], '00000000-0000-0000-0000-000000000000') AS [PeerReviewSecondaryAllocationMethod],  
+           --ISNULL([PeerReviewAllocationAttribute].[SecondaryPositionTemplate], '') AS [PeerReviewSecondaryPositionTemplate],  
+           --ISNULL([PeerReviewAllocationAttribute].[CCEmailsToAllPrimaryPosition], 0) AS [PeerReviewCCEmailsToAllPrimaryPosition],  
+           --ISNULL([PeerReviewAllocationAttribute].[CCEmailsToSecondaryPosition], 0) AS [PeerReviewCCEmailsToSecondaryPosition],  
+           --ISNULL([PeerReviewAllocationAttribute].[InformViaEmail], 0) AS [PeerReviewInformViaEmail],  
+           --ISNULL([PeerReviewAllocationAttribute].[SendReminders], 0) AS [PeerReviewSendReminders],  
+           --ISNULL([PeerReviewAllocationAttribute].[IsValid], 0) AS [PeerReviewIsAllocationValid],  
+           --[ActionAttribute].[GroupGUID] AS [ActionAttributeGroupGUID],  
+           [ActionAttribute].[EmailCC],  
+           [ActionAttribute].[EmailBCC],  
+           --ISNULL([Entities].[Name], '') AS [CustomAttributesEntityName],  
+           --[MasterProcessVersionInstance].[VersionGUID] AS [MasterProcessVersionInstanceGUID],  
+           --[tblActionGeneralAttributes].[RobotFarmGUID],  
+           --[tblRobotFarms].[Technology],  
+           ISNULL([maincard].[Name], '') AS [MainCardName],  
+           --ISNULL([maincard].[GUID], '00000000-0000-0000-0000-000000000000') AS [MainCardGUID],  
+           ISNULL([sidecard].[Name], '') AS [SideCardName],  
+           --ISNULL([sidecard].[GUID], '00000000-0000-0000-0000-000000000000') AS [SideCardGUID],  
+           [ActionAttribute].[OptionalEmailTo],  
+           [ActionAttribute].[OptionalEmailCC],  
+           [ActionAttribute].[OptionalEmailBCC]  
+    
+      FROM [tblActionAttributes] AS [ActionAttribute] WITH(READUNCOMMITTED)  
+		   INNER JOIN @ServiceMatrixItems as CaseAttributes ON CaseAttributes.CaseAttributeGUID = [ActionAttribute].[CaseAttributeGUID]
+           INNER JOIN [tblProcessVersionInstances] WITH(READUNCOMMITTED) ON [tblProcessVersionInstances].[VersionGUID] = [ActionAttribute].[ProcessVersionInstanceGUID]  
+           INNER JOIN [tblProcessInstances] WITH(READUNCOMMITTED) ON [tblProcessInstances].[GUID] = [tblProcessVersionInstances].[ProcessInstanceGUID]  
+           LEFT JOIN [tblProcessVersionInstances] AS [MasterProcessVersionInstance] WITH(READUNCOMMITTED) ON [MasterProcessVersionInstance].[VersionGUID] = [tblProcessVersionInstances].[Master_ProcessVersionInstanceGUID]  
+           LEFT JOIN [tblAllocationAttributes] WITH(READUNCOMMITTED) ON [tblAllocationAttributes].[GUID] = [ActionAttribute].[AllocationAttributeGUID]  
+           LEFT JOIN [tblDueDateAttributes] WITH(READUNCOMMITTED) ON [tblDueDateAttributes].[GUID] = [ActionAttribute].[DueDateAttributeGUID]  
+           LEFT JOIN [tblActionGeneralAttributes] WITH(READUNCOMMITTED) ON [tblActionGeneralAttributes].[GUID] = [ActionAttribute].[ActionGeneralAttributeGUID]  
+           LEFT JOIN [tblAllocationAttributes] AS [PeerReviewAllocationAttribute] WITH(READUNCOMMITTED) ON [ActionAttribute].[PeerReview_AllocationAttributeGUID] = [PeerReviewAllocationAttribute].[GUID]  
+           --LEFT JOIN [tblEntities] AS [Entities] WITH(READUNCOMMITTED) ON [Entities].[GUID] = [ActionAttribute].[CustomAttributes_EntityGUID]  
+           LEFT JOIN [tblRobotFarms] WITH(READUNCOMMITTED) ON [tblActionGeneralAttributes].[RobotFarmGUID] = [tblRobotFarms].[GUID]  
+           LEFT JOIN [tblCards] AS [maincard] WITH(READUNCOMMITTED) ON [maincard].[GUID] = [ActionAttribute].[Main_CardGUID]  
+           LEFT JOIN [tblCards] AS [sidecard] WITH(READUNCOMMITTED) ON [sidecard].[GUID] = [ActionAttribute].[Side_CardGUID]  
+		   LEFT OUTER JOIN [tblLocalisations] AS [tblProcessInstanceName] WITH(READUNCOMMITTED) ON [tblProcessInstanceName].[GUID] = [tblProcessInstances].[GUID] 
+     WHERE [ActionAttribute].[IsDeleted] = 0  
+    
+    SELECT [TempActionAttributes].*
+      FROM @TempActionAttributes AS [TempActionAttributes]  
+	  --WHERE ServiceLineName = 'RMS' AND ServiceName = 'PE - ISM'
+    ORDER BY [ServiceLineName] ASC,  
+             [ServiceName] ASC,
+			 [SupplierCompanyName] ASC,  
+			 [CompanyName] ASC, 
+			 [ContractName] ASC, 
+			 [ProcessInstanceName] ASC,  
+			 [ActionName] ASC,
+			 [StepNumber] ASC,
+			 [Order] ASC
+  
+    
